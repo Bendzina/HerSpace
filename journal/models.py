@@ -28,4 +28,18 @@ class DailyTask(models.Model):
     soul_task = models.CharField(max_length=255)
     completed = models.BooleanField(default=False) # type: ignore
     
-    
+class Ritual(models.Model):
+    RITUAL_TYPE_CHOICES = [
+        ('meditation', 'Meditation'),
+        ('affirmation', 'Affirmation'),
+        ('prompt', 'Journaling Prompt'),
+        ('tarot', 'Tarot Reflection'),
+        # add more as needed
+    ]
+    title = models.CharField(max_length=255)
+    ritual_type = models.CharField(max_length=30, choices=RITUAL_TYPE_CHOICES)
+    content = models.TextField()
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.ritual_type})"
