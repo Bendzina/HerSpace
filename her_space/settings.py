@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'journal',
     'users',
+    'motherhood',
     'drf_yasg',
     'django_filters'
 ]
@@ -111,8 +112,12 @@ WSGI_APPLICATION = 'her_space.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'herspace_db',
+        'USER': 'herspace_user',
+        'PASSWORD': '1234',  
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
