@@ -33,6 +33,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -61,6 +63,8 @@ SWAGGER_SETTINGS = {
 }
 # Application definition
 
+# Custom User Model
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -69,12 +73,18 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'users',  # Must come before other apps that depend on User model
     'journal',
-    'users',
     'motherhood',
+    'analytics',
+    'community',
+    'notifications',
+    'wellness',
     'drf_yasg',
     'django_filters'
 ]
+
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

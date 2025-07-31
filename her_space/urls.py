@@ -36,9 +36,13 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/journal/', include('journal.urls')),
     path('api/motherhood/', include('motherhood.urls')),
+    path('api/analytics/', include('analytics.urls')),
+    path('api/community/', include('community.urls')),
+    path('api/notifications/', include('notifications.urls')),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/users/', include('users.urls')),
+    path('api/wellness/', include('wellness.urls')),
 ]
 urlpatterns += [
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
