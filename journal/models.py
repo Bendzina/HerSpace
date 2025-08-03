@@ -30,7 +30,7 @@ class MoodCheckIn(models.Model):
             (4, 'High'),
             (5, 'Very High'),
         ],
-        help_text="ენერგიის დონე",
+        help_text="Energy level",
         null=True,
         blank=True
     )
@@ -38,13 +38,13 @@ class MoodCheckIn(models.Model):
     needs_today = models.TextField(
         max_length=500,
         blank=True,
-        help_text="რა გჭირდება დღეს?"
+        help_text="What do you need today?"
     )
     
     gratitude_moment = models.TextField(
         max_length=300,
         blank=True,
-        help_text="მადლიერების მომენტი"
+        help_text="Gratitude moment"
     )
     
     emotional_support_needed = models.CharField(
@@ -98,7 +98,7 @@ class Ritual(models.Model):
             ('self_discovery', 'Self Discovery'),
         ],
         default='any',
-        help_text="რომელი ფაზისთვის"
+        help_text="For which life phase"
     )
     
     emotional_tone = models.CharField(

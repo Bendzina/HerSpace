@@ -22,8 +22,12 @@ class DailyTaskSerializer(serializers.ModelSerializer):
 class RitualSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ritual
-        fields = ['id', 'title', 'ritual_type', 'content', 'is_active']
-        read_only_fields = ['id']
+        fields = [
+            'id', 'title', 'description', 'ritual_type', 'content',
+            'for_life_phase', 'emotional_tone', 'duration_minutes',
+            'is_for_beginners', 'tags', 'is_active', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 class GPTPromptSerializer(serializers.Serializer):
     prompt = serializers.CharField()
