@@ -31,7 +31,8 @@ SECRET_KEY = 'django-insecure-^d!i73c1att*5*t9x#y0r0ko65f@s2znjl$)d1@tm#uzm*bdue
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "192.168.100.4"]
+
 
 
 
@@ -45,6 +46,8 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
 }
+CSRF_TRUSTED_ORIGINS = ['http://192.168.100.4:8000']
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
