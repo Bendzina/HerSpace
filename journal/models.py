@@ -6,6 +6,7 @@ from django.utils import timezone
 class JournalEntry(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
+    title = models.CharField(max_length=255, blank=True, default='')
     content = models.TextField()
 
 class MoodCheckIn(models.Model):

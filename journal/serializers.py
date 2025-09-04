@@ -4,8 +4,12 @@ from .models import JournalEntry, MoodCheckIn, DailyTask, Ritual
 class JournalEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = JournalEntry
-        fields = ['id', 'created_at', 'content']
+        fields = ['id', 'created_at', 'title', 'content']  # include title
         read_only_fields = ['id', 'created_at']
+        extra_kwargs = {
+            'title': {'required': False, 'allow_blank': True},
+            'content': {'required': False, 'allow_blank': True},
+        }
 
 class MoodCheckInSerializer(serializers.ModelSerializer):
     class Meta:
