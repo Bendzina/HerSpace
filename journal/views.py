@@ -73,6 +73,9 @@ class DailyTaskListCreateView(generics.ListCreateAPIView):
             raise ValidationError("You have already created a daily task for today.")
         serializer.save(user=user, date=today)
 
+# Note: Mood analytics are provided by analytics.app at /api/analytics/mood/.
+# We intentionally do not duplicate analytics logic here in the journal app.
+
 # Detail views for each model
 class JournalEntryDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = JournalEntrySerializer
