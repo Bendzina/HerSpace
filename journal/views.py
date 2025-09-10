@@ -101,6 +101,10 @@ class DailyTaskDetailView(generics.RetrieveUpdateDestroyAPIView):
 class RitualListCreateView(generics.ListCreateAPIView):
     serializer_class = RitualSerializer
     permission_classes = [IsAuthenticated]
+    filterset_fields = ['for_life_phase', 'emotional_tone', 'ritual_type', 'is_for_beginners']
+    search_fields = ['title', 'description', 'content', 'tags']
+    ordering_fields = ['created_at', 'updated_at', 'duration_minutes']
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
 
     def get_queryset(self):
         return Ritual.objects.filter(is_active=True)
