@@ -87,6 +87,23 @@ class MotherhoodJournal(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.created_at.strftime('%Y-%m-%d')}"
 
+class RitualCompletion(models.Model):
+    """Tracks completion of motherhood rituals and routines"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    routine = models.ForeignKey('ChildcareRoutine', on_delete=models.CASCADE, null=True, blank=True)
+    completed = models.BooleanField(default=True)
+    completed_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-completed_at']
+        verbose_name = 'Ritual Completion'
+        verbose_name_plural = 'Ritual Completions'
+
+    def __str__(self):
+        return f"{self.user.email} - {self.routine.title if self.routine else 'Custom Ritual'} - {self.completed_at.strftime('%Y-%m-%d %H:%M')}"
+
+
 class SupportGroup(models.Model):
     """Virtual support groups for mothers"""
     GROUP_TYPE_CHOICES = [

@@ -36,7 +36,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             user = User.objects.create_user(
                 username=validated_data['username'],
                 password=validated_data['password'],
-                email=validated_data.get('email', '')
+                email=validated_data.get('email', ''),
+                is_active=True  # Set user as active by default
             )
             return user
         except Exception as e:
