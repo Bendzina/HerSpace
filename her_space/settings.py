@@ -70,8 +70,6 @@ SWAGGER_SETTINGS = {
 }
 # Application definition
 
-# Custom User Model
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -80,18 +78,21 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'users',  # Must come before other apps that depend on User model
+    'rest_framework_simplejwt',
+    'corsheaders',
+    'django_filters',
+    'drf_yasg',
+    'users.apps.UsersConfig',  
     'journal',
     'motherhood',
     'analytics',
     'community',
     'notifications',
     'wellness',
-    'drf_yasg',
-    'django_filters'
 ]
 
-
+# Custom user model
+AUTH_USER_MODEL = 'users.CustomUser'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -139,13 +140,14 @@ WSGI_APPLICATION = 'her_space.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'herspace_db',
-        'USER': 'herspace_user',
+        'NAME': 'herspace_app',
+        'USER': 'postgres',
         'PASSWORD': '1234',  
         'HOST': 'localhost',
         'PORT': '5432',
     }
 }
+
 
 
 # Password validation
@@ -183,6 +185,14 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Media files (user uploaded content)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Ensure the media directory exists
+os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

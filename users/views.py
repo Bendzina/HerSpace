@@ -49,33 +49,47 @@ class UserRegistrationView(APIView):
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def user_profile(request):
-    """Current user-ის ინფორმაცია და განახლება"""
+    """Get or update current user's profile information"""
     try:
+        user = request.user
+        
         if request.method == 'GET':
-            # GET request - user info დაბრუნება
+            # Return user info
             user_data = {
-                'id': request.user.id,
-                'username': request.user.username,
-                'email': request.user.email,
-                'displayName': request.user.first_name or request.user.username,
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'displayName': user.first_name or user.username,
+                'profileImage': request.build_absolute_uri(user.profile_image.url) if user.profile_image else None,
             }
             return Response(user_data, status=status.HTTP_200_OK)
         
         elif request.method == 'PATCH':
-            # PATCH request - user profile განახლება
-            user = request.user
+            # Handle file upload if present in the request
+            if 'profileImage' in request.FILES:
+                user.profile_image = request.FILES['profileImage']
+                user.save()
+                logger.info(f"User {user.username} updated profile image")
             
+            # Handle display name update if present in the request
             if 'displayName' in request.data:
                 user.first_name = request.data['displayName']
                 user.save()
                 logger.info(f"User {user.username} updated displayName to: {request.data['displayName']}")
             
-            # განახლებული user data დაბრუნება
+            # Handle email update if present in the request (if needed)
+            if 'email' in request.data and request.data['email'] != user.email:
+                user.email = request.data['email']
+                user.save()
+                logger.info(f"User {user.username} updated email to: {request.data['email']}")
+            
+            # Return updated user data
             updated_user_data = {
                 'id': user.id,
                 'username': user.username,
                 'email': user.email,
                 'displayName': user.first_name or user.username,
+                'profileImage': request.build_absolute_uri(user.profile_image.url) if user.profile_image else None,
             }
             return Response(updated_user_data, status=status.HTTP_200_OK)
             
