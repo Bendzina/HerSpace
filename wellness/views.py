@@ -175,33 +175,75 @@ class RitualTrackingView(APIView):
 
     def post(self, request):
         """Mark a ritual as used and optionally rate its effectiveness"""
-        serializer = RitualUsageSerializer(data=request.data)
-        if serializer.is_valid():
+        try:
+            print(f"Received request data: {request.data}")  # Debug log
+            
+            # Get language from request headers or default to English
+            language = request.META.get('HTTP_ACCEPT_LANGUAGE', 'en')[:2].lower()
+            if language not in ['en', 'ka']:
+                language = 'en'
+                
+            serializer = RitualUsageSerializer(data=request.data)
+            if not serializer.is_valid():
+                print(f"Serializer errors: {serializer.errors}")  # Debug log
+                return Response({
+                    "detail": "Invalid data provided.",
+                    "errors": serializer.errors
+                }, status=400)
+            
             # Get ritual ID from the data
             ritual_id = request.data.get('ritual')
             if not ritual_id:
                 return Response({"detail": "Ritual ID is required."}, status=400)
+                
+            # Convert ritual_id to integer if it's a string
+            try:
+                ritual_id = int(ritual_id) if isinstance(ritual_id, str) else ritual_id
+            except (ValueError, TypeError):
+                return Response({
+                    "detail": "Invalid ritual ID format. Must be a number.",
+                    "ritual_id": ritual_id
+                }, status=400)
             
             # Ensure the ritual exists and is active
             try:
                 ritual = Ritual.objects.get(id=ritual_id, is_active=True)
             except Ritual.DoesNotExist:
-                return Response({"detail": "Ritual not found or inactive."}, status=404)
+                return Response({
+                    "detail": "Ritual not found or inactive.",
+                    "ritual_id": ritual_id,
+                    "available_rituals": list(Ritual.objects.filter(is_active=True).values('id', 'title', 'language'))
+                }, status=404)
             
             # Create usage record with the ritual
             usage_data = serializer.validated_data.copy()
             usage_data['ritual'] = ritual
             
-            usage = RitualUsage.objects.create(
-                user=request.user,
-                **usage_data
-            )
-            
+            try:
+                usage = RitualUsage.objects.create(
+                    user=request.user,
+                    **usage_data
+                )
+                
+                return Response({
+                    "message": "Ritual usage tracked successfully.",
+                    "usage": RitualUsageSerializer(usage).data
+                })
+                
+            except Exception as e:
+                print(f"Error creating RitualUsage: {str(e)}")  # Debug log
+                return Response({
+                    "detail": f"Error saving ritual usage: {str(e)}",
+                    "error_type": type(e).__name__
+                }, status=500)
+                
+        except Exception as e:
+            print(f"Unexpected error in RitualTrackingView: {str(e)}")  # Debug log
             return Response({
-                "message": "Ritual usage tracked successfully.",
-                "usage": RitualUsageSerializer(usage).data
-            })
-        return Response(serializer.errors, status=400)
+                "detail": "An unexpected error occurred.",
+                "error": str(e),
+                "error_type": type(e).__name__
+            }, status=500)
 
 class RitualHistoryView(APIView):
     """Get user's ritual usage history"""
