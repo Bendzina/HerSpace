@@ -153,3 +153,121 @@ class RitualUsage(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.ritual.title} ({self.used_at.date()})"
+
+class MindfulnessActivity(models.Model):
+    """Mindfulness activities for users to practice"""
+    title = models.CharField(max_length=200)
+    description = models.TextField(help_text="Detailed description of the activity")
+    short_description = models.CharField(max_length=255, blank=True, help_text="Brief description for cards")
+    icon = models.CharField(max_length=50, default='leaf', help_text="Icon name from the icon set")
+    duration_minutes = models.PositiveIntegerField(default=5, help_text="Estimated duration in minutes")
+    audio_file = models.FileField(upload_to='mindfulness/audio/', blank=True, null=True)
+    image = models.ImageField(upload_to='mindfulness/images/', blank=True, null=True)
+    
+    # Categorization
+    ACTIVITY_CATEGORIES = [
+        ('breathing', 'Breathing Exercises'),
+        ('meditation', 'Meditation'),
+        ('body_scan', 'Body Scan'),
+        ('gratitude', 'Gratitude Practice'),
+        ('visualization', 'Visualization'),
+        ('movement', 'Gentle Movement'),
+    ]
+    
+    category = models.CharField(
+        max_length=50,
+        choices=ACTIVITY_CATEGORIES,
+        default='meditation',
+        help_text="Type of mindfulness activity"
+    )
+    
+    # Difficulty level
+    DIFFICULTY_LEVELS = [
+        ('beginner', 'Beginner'),
+        ('intermediate', 'Intermediate'),
+        ('advanced', 'Advanced'),
+    ]
+    
+    difficulty = models.CharField(
+        max_length=20,
+        choices=DIFFICULTY_LEVELS,
+        default='beginner',
+        help_text="Difficulty level of the activity"
+    )
+    
+    # Localization
+    title_ka = models.CharField(max_length=200, blank=True, help_text="Title in Georgian")
+    description_ka = models.TextField(blank=True, help_text="Description in Georgian")
+    short_description_ka = models.CharField(max_length=255, blank=True, help_text="Short description in Georgian")
+    
+    # Metadata
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.title
+    
+    def get_title(self, language='en'):
+        """Get localized title"""
+        if language == 'ka' and self.title_ka:
+            return self.title_ka
+        return self.title
+    
+    def get_description(self, language='en'):
+        """Get localized description"""
+        if language == 'ka' and self.description_ka:
+            return self.description_ka
+        return self.description
+    
+    def get_short_description(self, language='en'):
+        """Get localized short description"""
+        if language == 'ka' and self.short_description_ka:
+            return self.short_description_ka
+        return self.short_description or self.description[:150] + ('...' if len(self.description) > 150 else '')
+
+class MindfulnessSession(models.Model):
+    """Track user's mindfulness practice sessions"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mindfulness_sessions')
+    activity = models.ForeignKey(MindfulnessActivity, on_delete=models.PROTECT, related_name='sessions')
+    started_at = models.DateTimeField(auto_now_add=True)
+    duration_minutes = models.PositiveIntegerField(help_text="Actual duration in minutes")
+    
+    # Optional feedback
+    mood_before = models.CharField(
+        max_length=20,
+        choices=[
+            ('happy', 'Happy'),
+            ('sad', 'Sad'),
+            ('anxious', 'Anxious'),
+            ('calm', 'Calm'),
+            ('stressed', 'Stressed'),
+            ('excited', 'Excited'),
+        ],
+        blank=True,
+        null=True,
+        help_text="How were you feeling before the session?"
+    )
+    
+    mood_after = models.CharField(
+        max_length=20,
+        choices=[
+            ('happy', 'Happy'),
+            ('sad', 'Sad'),
+            ('anxious', 'Anxious'),
+            ('calm', 'Calm'),
+            ('stressed', 'Stressed'),
+            ('excited', 'Excited'),
+        ],
+        blank=True,
+        null=True,
+        help_text="How are you feeling after the session?"
+    )
+    
+    notes = models.TextField(blank=True, help_text="Any reflections or notes about this session")
+    
+    class Meta:
+        ordering = ['-started_at']
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.activity.title} at {self.started_at}"

@@ -125,6 +125,17 @@ class Ritual(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    LANGUAGE_CHOICES = [
+        ('en', 'English'),
+        ('ka', 'Georgian'),
+    ]
+    language = models.CharField(
+        max_length=10,
+        choices=LANGUAGE_CHOICES,
+        default='en',
+        help_text='Language of the ritual content'
+    )
 
     def __str__(self):
         return f"{self.title} ({self.ritual_type})"

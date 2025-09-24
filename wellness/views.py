@@ -1,9 +1,16 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .models import WisdomMessage, UserWisdomDelivery, UserProfile, RitualUsage
-from .serializers import WisdomMessageSerializer, UserWisdomDeliverySerializer, UserProfileSerializer, RitualUsageSerializer
+from .models import WisdomMessage, UserWisdomDelivery, UserProfile, RitualUsage, MindfulnessActivity
+from .serializers import (
+    WisdomMessageSerializer, 
+    UserWisdomDeliverySerializer, 
+    UserProfileSerializer, 
+    RitualUsageSerializer,
+    MindfulnessActivitySerializer
+)
 from django.utils import timezone
 from rest_framework import status
 from journal.models import Ritual
@@ -202,19 +209,246 @@ class RitualHistoryView(APIView):
 
     def get(self, request):
         """Get user's ritual usage history with effectiveness data"""
-        usages = RitualUsage.objects.filter(user=request.user).select_related('ritual')
+        # Get all ritual usages for the user
+        usages = RitualUsage.objects.filter(user=request.user).select_related('ritual').order_by('-used_at')
+        
+        # Calculate stats
+        total_rituals = usages.count()
+        helpful_rituals = usages.filter(was_helpful=True).count()
+        
+        # Calculate average rating (excluding nulls)
+        ratings = usages.exclude(effectiveness_rating__isnull=True).values_list('effectiveness_rating', flat=True)
+        avg_rating = sum(ratings) / len(ratings) if ratings else None
+        
+        # Serialize the data
         serializer = RitualUsageSerializer(usages, many=True)
         
-        # Calculate some basic stats
-        total_used = usages.count()
-        helpful_count = usages.filter(was_helpful=True).count()
-        avg_rating = usages.aggregate(avg_rating=models.Avg('effectiveness_rating'))['avg_rating']
+        return Response({
+            'history': serializer.data,
+            'stats': {
+                'total_rituals_used': total_rituals,
+                'helpful_rituals': helpful_rituals,
+                'average_rating': round(avg_rating, 1) if avg_rating is not None else None,
+            }
+        })
+
+class TestMindfulnessView(APIView):
+    """Test endpoint to help diagnose issues"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Simple test endpoint to check if basic functionality works"""
+        try:
+            # Just return a simple response to test the endpoint
+            return Response({
+                "status": "success",
+                "message": "Test endpoint is working",
+                "user": request.user.username,
+                "timestamp": timezone.now().isoformat()
+            })
+        except Exception as e:
+            return Response(
+                {"error": str(e), "type": type(e).__name__},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class SimpleMindfulnessActivityView(APIView):
+    """Simplified version of MindfulnessActivityView for debugging"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Return a simplified list of activities"""
+        try:
+            # Get basic activity data without any complex serialization
+            activities = MindfulnessActivity.objects.filter(is_active=True).values(
+                'id', 'title', 'description', 'duration_minutes', 'category'
+            )
+            
+            return Response({
+                "status": "success",
+                "count": len(activities),
+                "activities": list(activities)
+            })
+            
+        except Exception as e:
+            import traceback
+            return Response(
+                {
+                    "status": "error",
+                    "error": str(e),
+                    "type": type(e).__name__,
+                    "traceback": traceback.format_exc()
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class MindfulnessActivityView(APIView):
+    """View for mindfulness activities"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        """Get all active mindfulness activities"""
+        try:
+            # Check authentication
+            if not request.user.is_authenticated:
+                return Response(
+                    {"detail": "Authentication credentials were not provided."}, 
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+                
+            # Get language from query params or default to English
+            language = request.query_params.get('lang', 'en')
+            
+            # Debug logging
+            print(f"\n=== Debug: Starting MindfulnessActivityView.get() ===")
+            print(f"1. User: {request.user.username}")
+            print(f"2. Language: {language}")
+            
+            # Get active activities with explicit select_related and prefetch_related
+            print("3. Fetching activities from database...")
+            try:
+                activities = MindfulnessActivity.objects.filter(is_active=True)
+                print(f"4. Queryset SQL: {str(activities.query)}")
+                
+                # Force evaluation of the queryset to catch any database errors
+                count = activities.count()
+                print(f"5. Found {count} activities")
+                
+                # Log model fields and related objects
+                print("6. Model fields:", [f.name for f in MindfulnessActivity._meta.get_fields()])
+                print("7. Model related objects:", [f.name for f in MindfulnessActivity._meta.related_objects])
+                
+            except Exception as db_error:
+                print(f"!!! Database error: {str(db_error)}")
+                print("!!! Exception type:", type(db_error).__name__)
+                import traceback
+                print("!!! Traceback:", traceback.format_exc())
+                raise
+            
+            # Debug: Print the raw queryset SQL
+            print("3. Raw SQL query:", str(activities.query))
+            
+            # Debug: Check if the queryset has any prefetch_related calls
+            if hasattr(activities, '_prefetch_related_lookups'):
+                print("4. Prefetch related lookups:", activities._prefetch_related_lookups)
+            else:
+                print("4. No prefetch_related lookups found on the queryset")
+            
+            # Debug: Print the model's _meta to check fields and related_objects
+            print("5. Model fields:", [f.name for f in MindfulnessActivity._meta.get_fields()])
+            print("6. Model related objects:", [f.name for f in MindfulnessActivity._meta.related_objects])
+            
+            # Initialize serializer with request context for language handling and URL resolution
+            print("8. Initializing serializer...")
+            try:
+                # Create a list from the queryset to prevent any lazy evaluation issues
+                activities_list = list(activities)
+                print(f"9. Converted queryset to list with {len(activities_list)} items")
+                
+                # Log the first activity for debugging
+                if activities_list:
+                    first_activity = activities_list[0]
+                    print(f"10. First activity ID: {first_activity.id}, Title: {first_activity.title}")
+                    print(f"11. First activity audio_file: {getattr(first_activity, 'audio_file', 'None')}")
+                
+                # Initialize the serializer
+                serializer_context = {
+                    'request': request,
+                    'language': language
+                }
+                print("12. Serializer context:", serializer_context)
+                
+                serializer = MindfulnessActivitySerializer(
+                    activities_list,
+                    many=True,
+                    context=serializer_context
+                )
+                print("13. Serializer initialized successfully")
+                
+                # Get serialized data with error handling
+                try:
+                    serialized_data = serializer.data
+                    print(f"14. Successfully serialized {len(serialized_data) if serialized_data else 0} activities")
+                    if serialized_data and len(serialized_data) > 0:
+                        print("15. First serialized activity keys:", list(serialized_data[0].keys()))
+                except Exception as ser_error:
+                    print(f"!!! Error accessing serializer.data: {str(ser_error)}")
+                    print("!!! Exception type:", type(ser_error).__name__)
+                    import traceback
+                    print("!!! Traceback:", traceback.format_exc())
+                    raise
+                    
+            except Exception as e:
+                print(f"!!! Error in serializer initialization: {str(e)}")
+                print("!!! Exception type:", type(e).__name__)
+                import traceback
+                print("!!! Full traceback:")
+                traceback.print_exc()
+                
+                # Return a more detailed error response
+                return Response(
+                    {
+                        "error": "Error serializing mindfulness activities",
+                        "details": str(e),
+                        "type": type(e).__name__,
+                        "traceback": traceback.format_exc() if settings.DEBUG else "Traceback only available in DEBUG mode"
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            
+            # Get serialized data
+            serialized_data = serializer.data
+            print(f"Serialized {len(serialized_data)} activities")
+            
+            # Debug: Print first activity's audio URL if available
+            if serialized_data and 'audio_file' in serialized_data[0]:
+                print(f"First activity audio URL: {serialized_data[0].get('audio_file')}")
+            
+            return Response(serializer.data)
+            
+        except Exception as e:
+            # Log the full error
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"Error in MindfulnessActivityView: {str(e)}\n{error_trace}")
+            
+            # Return a detailed error response
+            return Response(
+                {
+                    "error": "An error occurred while fetching mindfulness activities.",
+                    "details": str(e),
+                    "trace": error_trace if settings.DEBUG else "Traceback only available in DEBUG mode"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class TrackMindfulnessActivityView(APIView):
+    """Track when a user starts a mindfulness activity"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        """Record that a user has started a mindfulness activity"""
+        activity_id = request.data.get('activity')
+        
+        if not activity_id:
+            return Response(
+                {"error": "Activity ID is required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        try:
+            activity = MindfulnessActivity.objects.get(id=activity_id, is_active=True)
+        except MindfulnessActivity.DoesNotExist:
+            return Response(
+                {"error": "Invalid activity ID"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+        # Record the activity usage
+        # You might want to create a separate model for tracking mindfulness activity usage
+        # For now, we'll just return a success response
         
         return Response({
-            "history": serializer.data,
-            "stats": {
-                "total_rituals_used": total_used,
-                "helpful_rituals": helpful_count,
-                "average_rating": round(avg_rating, 1) if avg_rating else None
-            }
+            "message": "Mindfulness activity tracked successfully",
+            "activity": MindfulnessActivitySerializer(activity).data
         })
