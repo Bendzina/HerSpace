@@ -139,3 +139,108 @@ class Ritual(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.ritual_type})"
+
+# Dagi AI Models - Tarot and AI functionality
+class TarotCard(models.Model):
+    """Model for storing tarot card information"""
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    image_url = models.URLField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    # Card attributes
+    is_major_arcana = models.BooleanField(default=False)
+    suit = models.CharField(
+        max_length=20,
+        choices=[
+            ('major', 'Major Arcana'),
+            ('cups', 'Cups'),
+            ('pentacles', 'Pentacles'),
+            ('swords', 'Swords'),
+            ('wands', 'Wands'),
+        ],
+        default='major'
+    )
+
+    # Card meanings
+    upright_meanings = models.JSONField(default=list, help_text="Keywords for upright position")
+    reversed_meanings = models.JSONField(default=list, help_text="Keywords for reversed position")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['is_major_arcana', 'suit', 'name']
+
+    def __str__(self):
+        return f"{self.name} ({self.suit})"
+
+class TarotPrompt(models.Model):
+    """Model for storing tarot reading prompts and responses"""
+    PROMPT_TYPE_CHOICES = [
+        ('single_card', 'Single Card'),
+        ('three_card', 'Three Card Spread'),
+        ('celtic_cross', 'Celtic Cross'),
+        ('daily', 'Daily Reading'),
+        ('custom', 'Custom Prompt'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    prompt_type = models.CharField(max_length=20, choices=PROMPT_TYPE_CHOICES)
+    question = models.TextField(blank=True, help_text="User's question or intention")
+
+    # Reading results
+    cards_drawn = models.JSONField(default=list, help_text="List of drawn cards with positions")
+    interpretation = models.TextField(blank=True, help_text="AI-generated interpretation")
+    advice = models.TextField(blank=True, help_text="Advice based on the reading")
+
+    # Metadata
+    is_ai_generated = models.BooleanField(default=False)
+    ai_model_used = models.CharField(max_length=50, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Tarot Reading - {self.user.username} - {self.created_at.strftime('%Y-%m-%d')}"
+
+class TarotDeck(models.Model):
+    """Model for different tarot decks"""
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    cards = models.ManyToManyField(TarotCard, related_name='decks')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+class AIConversation(models.Model):
+    """Model for storing AI conversations with Dagi AI"""
+    CONVERSATION_TYPE_CHOICES = [
+        ('tarot', 'Tarot Reading'),
+        ('general', 'General Chat'),
+        ('guidance', 'Life Guidance'),
+        ('reflection', 'Self Reflection'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    conversation_type = models.CharField(max_length=20, choices=CONVERSATION_TYPE_CHOICES)
+    user_message = models.TextField(help_text="User's message to AI")
+    ai_response = models.TextField(help_text="AI's response")
+
+    # Context and metadata
+    context_data = models.JSONField(default=dict, blank=True, help_text="Additional context for the conversation")
+    is_favorite = models.BooleanField(default=False, help_text="User marked as favorite")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"AI Chat - {self.user.username} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
