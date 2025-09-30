@@ -132,18 +132,33 @@ class GPTAssistantView(APIView):
         serializer.is_valid(raise_exception=True)
         prompt = serializer.validated_data['prompt']
 
+        print(f"🔵 === DAGI AI REQUEST ===")
+        print(f"🔵 User: {request.user.username}")
+        print(f"🔵 Prompt: {prompt}")
+
         # Initialize OpenAI client
-        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        try:
+            client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            print(f"✅ OpenAI client initialized")
+        except Exception as e:
+            print(f"❌ Error initializing OpenAI client: {str(e)}")
+            return Response({
+                "error": f"Failed to initialize AI service: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # Check if this is a tarot-related request
         if 'tarot' in prompt.lower() or 'card' in prompt.lower() or 'reading' in prompt.lower():
+            print(f"🔮 Detected TAROT request")
             return self.handle_tarot_request(request, prompt, client)
         else:
+            print(f"💬 Detected GENERAL request")
             return self.handle_general_ai_request(request, prompt, client)
 
     def handle_tarot_request(self, request, prompt, client):
         """Handle tarot-related requests with OpenAI integration"""
         try:
+            print(f"🔮 Processing tarot request...")
+            
             # Extract tarot reading type from prompt
             prompt_lower = prompt.lower()
 
@@ -163,15 +178,20 @@ class GPTAssistantView(APIView):
                 prompt_type = 'custom'
                 cards_to_draw = 1
 
+            print(f"🔮 Reading type: {prompt_type}, Cards to draw: {cards_to_draw}")
+
             # Get available tarot cards
             available_cards = TarotCard.objects.filter(is_active=True)
+            print(f"🔮 Available cards in database: {available_cards.count()}")
+            
             if available_cards.count() == 0:
                 return Response({
-                    "error": "No tarot cards available in the system yet."
+                    "error": "No tarot cards available in the system yet. Please run create_sample_tarot_cards.py"
                 }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
             # Draw random cards
             drawn_cards = random.sample(list(available_cards), min(cards_to_draw, available_cards.count()))
+            print(f"🔮 Drew {len(drawn_cards)} cards")
 
             # Create card data with positions
             cards_data = []
@@ -189,6 +209,7 @@ class GPTAssistantView(APIView):
                     'meanings': card.reversed_meanings if is_reversed else card.upright_meanings
                 }
                 cards_data.append(card_data)
+                print(f"🔮 Card {i+1}: {card.name} {'(Reversed)' if is_reversed else ''}")
 
             # Create enhanced prompt for OpenAI with card details
             card_details = []
@@ -230,6 +251,7 @@ Remember to be supportive and empowering."""
 
             # Get OpenAI response
             try:
+                print(f"🔮 Calling OpenAI API...")
                 response = client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=[
@@ -241,10 +263,12 @@ Remember to be supportive and empowering."""
                 )
 
                 interpretation = response.choices[0].message.content.strip()
+                print(f"✅ OpenAI response received: {len(interpretation)} characters")
 
             except Exception as openai_error:
                 # Fallback to basic interpretation if OpenAI fails
-                print(f"OpenAI error: {openai_error}")
+                print(f"❌ OpenAI error: {openai_error}")
+                print(f"🔮 Using fallback interpretation...")
                 interpretation = self.generate_fallback_interpretation(cards_data, prompt_type, prompt)
 
             # Save the tarot reading
@@ -255,16 +279,26 @@ Remember to be supportive and empowering."""
                 cards_drawn=cards_data,
                 interpretation=interpretation,
                 advice="Take time to reflect on this reading and trust your intuition.",
-                is_ai_generated=True,  # Now using real AI
+                is_ai_generated=True,
                 ai_model_used="gpt-3.5-turbo"
             )
 
+            print(f"✅ Tarot reading saved with ID: {tarot_reading.id}")
+            print(f"🔵 === END TAROT REQUEST ===\n")
+
+            # ✅ FIX: Return interpretation as message
+            reading_data = TarotPromptSerializer(tarot_reading).data
+
             return Response({
-                "message": "Tarot reading completed with AI interpretation",
-                "reading": TarotPromptSerializer(tarot_reading).data
+                "message": interpretation,  # ✅ აქ უნდა იყოს interpretation!
+                "reading": reading_data,
+                "temporary_note": "🔮 Tarot reading completed"
             })
 
         except Exception as e:
+            print(f"❌ Error in handle_tarot_request: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return Response({
                 "error": f"Error processing tarot request: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -272,6 +306,8 @@ Remember to be supportive and empowering."""
     def handle_general_ai_request(self, request, prompt, client):
         """Handle general AI conversation requests with OpenAI"""
         try:
+            print(f"💬 Processing general AI request...")
+            
             # Create OpenAI prompt for general conversation
             ai_prompt = f"""You are Dagi, a supportive AI assistant focused on women's wellness, mental health, and personal growth.
 
@@ -286,6 +322,7 @@ Please provide a warm, supportive, and helpful response. Focus on:
 Keep your response conversational and caring, like a trusted friend."""
 
             # Get OpenAI response
+            print(f"💬 Calling OpenAI API...")
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -297,6 +334,7 @@ Keep your response conversational and caring, like a trusted friend."""
             )
 
             ai_response = response.choices[0].message.content.strip()
+            print(f"✅ OpenAI response received: {len(ai_response)} characters")
 
             # Save the conversation
             conversation = AIConversation.objects.create(
@@ -308,12 +346,20 @@ Keep your response conversational and caring, like a trusted friend."""
                 is_favorite=False
             )
 
+            print(f"✅ Conversation saved with ID: {conversation.id}")
+            print(f"🔵 === END GENERAL REQUEST ===\n")
+
+            # ✅ FIX: Return ai_response as message
             return Response({
-                "message": "AI response generated",
-                "conversation": AIConversationSerializer(conversation).data
+                "message": ai_response,  # ✅ აქ უნდა იყოს ai_response!
+                "conversation": AIConversationSerializer(conversation).data,
+                "temporary_note": "✨ Powered by AI"
             })
 
         except Exception as e:
+            print(f"❌ Error in handle_general_ai_request: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return Response({
                 "error": f"Error processing AI request: {str(e)}"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
