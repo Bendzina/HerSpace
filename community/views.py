@@ -12,7 +12,7 @@ from .serializers import (
 
 class CommunityPostListCreateView(generics.ListCreateAPIView):
     """List and create community posts"""
-    permission_classes = [AllowAny]  # Allow anonymous viewing
+    permission_classes = [AllowAny]
     filterset_fields = ['post_type', 'is_anonymous', 'created_at']
     search_fields = ['title', 'content']
     ordering_fields = ['created_at', 'comment_count', 'reaction_count']
@@ -59,38 +59,68 @@ class CommunityCommentListCreateView(generics.ListCreateAPIView):
     
     def perform_create(self, serializer):
         post_id = self.kwargs.get('post_id')
-        if self.request.user.is_authenticated and not serializer.validated_data.get('is_anonymous', True):
-            serializer.save(post_id=post_id, user=self.request.user)
-        else:
-            serializer.save(post_id=post_id)
+        # Pass post_id through context
+        serializer.context['post_id'] = post_id
+        serializer.save()
 
 class CommunityReactionCreateView(generics.CreateAPIView):
-    """Add a reaction to a post"""
+    """Add/remove/change reaction to a post (Facebook-style)"""
     permission_classes = [AllowAny]
     serializer_class = CommunityReactionSerializer
     
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
         post_id = self.kwargs.get('post_id')
-        reaction_type = serializer.validated_data['reaction_type']
+        reaction_type = request.data.get('reaction_type')
+        is_anonymous = request.data.get('is_anonymous', True)
         
-        # Check if user already reacted with this type
+        # Get user identifier (session_id for anonymous, user for authenticated)
+        if request.user.is_authenticated and not is_anonymous:
+            user_filter = {'user': request.user}
+            create_data = {'user': request.user, 'is_anonymous': False}
+        else:
+            # For anonymous users, use session_id to track reactions
+            session_id = request.session.session_key
+            if not session_id:
+                request.session.create()
+                session_id = request.session.session_key
+            user_filter = {'session_id': session_id, 'user': None}
+            create_data = {'session_id': session_id, 'is_anonymous': True}
+        
+        # Check if user already has ANY reaction on this post
         existing_reaction = CommunityReaction.objects.filter(
             post_id=post_id,
-            reaction_type=reaction_type,
-            user=self.request.user if self.request.user.is_authenticated else None
+            **user_filter
         ).first()
         
         if existing_reaction:
-            # Remove existing reaction (toggle off)
-            existing_reaction.delete()
-            return Response({"message": "Reaction removed"}, status=status.HTTP_200_OK)
+            if existing_reaction.reaction_type == reaction_type:
+                # Toggle off: remove the same reaction
+                existing_reaction.delete()
+                return Response(
+                    {"message": "Reaction removed", "action": "removed"},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                # Change reaction: update to new type
+                existing_reaction.reaction_type = reaction_type
+                existing_reaction.save()
+                serializer = self.get_serializer(existing_reaction)
+                return Response(
+                    {**serializer.data, "action": "changed"},
+                    status=status.HTTP_200_OK
+                )
         else:
             # Add new reaction
-            if self.request.user.is_authenticated and not serializer.validated_data.get('is_anonymous', True):
-                serializer.save(post_id=post_id, user=self.request.user)
-            else:
-                serializer.save(post_id=post_id)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            reaction = CommunityReaction.objects.create(
+                post_id=post_id,
+                reaction_type=reaction_type,
+                **create_data
+            )
+            serializer = self.get_serializer(reaction)
+            return Response(
+                {**serializer.data, "action": "added"},
+                status=status.HTTP_201_CREATED
+            )
 
 class CommunityReactionListView(generics.ListAPIView):
     """List reactions for a post"""

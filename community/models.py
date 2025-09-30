@@ -12,20 +12,18 @@ class CommunityPost(models.Model):
         ('gratitude', 'Gratitude'),
     ]
     
-    # Anonymous posting - no user field
     post_type = models.CharField(max_length=20, choices=POST_TYPE_CHOICES)
     title = models.CharField(max_length=255)
     content = models.TextField()
     is_anonymous = models.BooleanField(default=True)
-    is_approved = models.BooleanField(default=True)  # For moderation
+    is_approved = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    # Optional user field for non-anonymous posts
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True
     )
     
@@ -42,11 +40,10 @@ class CommunityComment(models.Model):
     is_anonymous = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
-    # Optional user field for non-anonymous comments
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True
     )
     
@@ -57,7 +54,7 @@ class CommunityComment(models.Model):
         return f"Comment on {self.post.title[:30]}"
 
 class CommunityReaction(models.Model):
-    """Reactions to community posts (hearts, support, etc.)"""
+    """Reactions to community posts (Facebook-style)"""
     REACTION_CHOICES = [
         ('heart', '❤️ Heart'),
         ('support', '🤗 Support'),
@@ -70,17 +67,32 @@ class CommunityReaction(models.Model):
     reaction_type = models.CharField(max_length=20, choices=REACTION_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
     
-    # Anonymous reactions
+    # For anonymous users: track by session_id
+    session_id = models.CharField(max_length=255, null=True, blank=True)
+    
+    # For authenticated users
     is_anonymous = models.BooleanField(default=True)
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
-        null=True, 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True
     )
     
     class Meta:
-        unique_together = ['post', 'reaction_type', 'user']  # One reaction per type per user
+        # Ensure one reaction per user/session per post
+        constraints = [
+            models.UniqueConstraint(
+                fields=['post', 'user'],
+                condition=models.Q(user__isnull=False),
+                name='unique_user_reaction_per_post'
+            ),
+            models.UniqueConstraint(
+                fields=['post', 'session_id'],
+                condition=models.Q(session_id__isnull=False),
+                name='unique_session_reaction_per_post'
+            )
+        ]
     
     def __str__(self):
         return f"{self.reaction_type} on {self.post.title[:30]}"
