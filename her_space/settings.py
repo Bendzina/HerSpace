@@ -20,7 +20,7 @@ SECRET_KEY = 'django-insecure-^d!i73c1att*5*t9x#y0r0ko65f@s2znjl$)d1@tm#uzm*bdue
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True  # ✅ ჩართე DEBUG რომ errors ნახო
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "192.168.100.4"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "192.168.100.7"]
 
 # Application definition
 INSTALLED_APPS = [
@@ -63,8 +63,8 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",
-    "http://192.168.100.4:8081",
-    "exp://192.168.100.4:8081",  # Expo-სთვის
+    "http://192.168.100.7:8081",
+    "exp://192.168.100.7:8081",  # Expo-სთვის
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -81,7 +81,7 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # CSRF trusted origins
-CSRF_TRUSTED_ORIGINS = ['http://192.168.100.4:8000']
+CSRF_TRUSTED_ORIGINS = ['http://192.168.100.7:8000']
 
 # REST Framework settings
 REST_FRAMEWORK = {

@@ -161,17 +161,37 @@ class GPTAssistantView(APIView):
             
             # Extract tarot reading type from prompt
             prompt_lower = prompt.lower()
+            
+            # Check if the prompt is in Georgian
+            is_georgian = any('ა' <= char <= 'ჿ' for char in prompt)
+            print(f"🔤 Language detected: {'Georgian' if is_georgian else 'Non-Georgian'}")
 
-            if 'single' in prompt_lower or 'one card' in prompt_lower:
+            # Try to extract numeric card count from prompt (e.g., "Draw 3 cards")
+            import re
+            numeric_match = re.search(r'draw\s+(\d+)\s+', prompt_lower)
+            if numeric_match:
+                cards_to_draw = int(numeric_match.group(1))
+                print(f"🔮 Extracted numeric card count: {cards_to_draw}")
+                if cards_to_draw == 1:
+                    prompt_type = 'single_card'
+                elif cards_to_draw == 3:
+                    prompt_type = 'three_card'
+                elif cards_to_draw == 10:
+                    prompt_type = 'celtic_cross'
+                elif cards_to_draw == 5:
+                    prompt_type = 'five_card'
+                else:
+                    prompt_type = 'custom'
+            elif 'single' in prompt_lower or 'one card' in prompt_lower or 'ერთი' in prompt_lower:
                 prompt_type = 'single_card'
                 cards_to_draw = 1
-            elif 'three' in prompt_lower or 'past present future' in prompt_lower:
+            elif 'three' in prompt_lower or 'past present future' in prompt_lower or 'სამი' in prompt_lower:
                 prompt_type = 'three_card'
                 cards_to_draw = 3
-            elif 'celtic' in prompt_lower or 'cross' in prompt_lower:
+            elif 'celtic' in prompt_lower or 'cross' in prompt_lower or 'კელტური' in prompt_lower:
                 prompt_type = 'celtic_cross'
                 cards_to_draw = 10
-            elif 'daily' in prompt_lower:
+            elif 'daily' in prompt_lower or 'დღიური' in prompt_lower:
                 prompt_type = 'daily'
                 cards_to_draw = 1
             else:
@@ -222,43 +242,86 @@ class GPTAssistantView(APIView):
                     'meanings': card['meanings']
                 })
 
-            # Create OpenAI prompt
-            ai_prompt = f"""You are Dagi, a warm and supportive AI tarot reader for women. Provide a gentle, empowering tarot reading.
+            # Check if the prompt is in Georgian
+            is_georgian = any('\u10D0' <= char <= '\u10FF' for char in prompt)
+            
+            # Create language-specific prompts
+            if is_georgian:
+                ai_prompt = """
+                თქვენ ხართ დაგი, თბილი და მხარდამჭერი ტაროს მკითხაური ქალებისთვის. 
+                მოგაწვდით ტაროს გაშლის თბილ, გულწრფელ ინტერპრეტაციას.
 
-User's question: {prompt}
+                მომხმარებლის შეკითხვა: {prompt}
 
-Cards drawn:
-"""
+                გაშლილი კარტები:
+                """
 
-            for i, card in enumerate(card_details):
-                position = self.get_position_name(prompt_type, i)
-                ai_prompt += f"{position}: {card['name']} ({card['suit']})"
-                if card['is_reversed']:
-                    ai_prompt += " - Reversed"
-                ai_prompt += f"\nTraditional meanings: {', '.join(card['meanings'][:3])}\n\n"
+                for i, card in enumerate(card_details):
+                    position = self.get_position_name_georgian(prompt_type, i)
+                    ai_prompt += f"{position}: {card['name']} ({card['suit']})"
+                    if card['is_reversed']:
+                        ai_prompt += " - შებრუნებული"
+                    ai_prompt += f"\nტრადიციული მნიშვნელობები: {', '.join(card['meanings'][:3])}\n\n"
 
-            ai_prompt += f"""
-Please provide a warm, supportive interpretation for this {prompt_type} reading.
-Focus on empowerment, growth, and positive guidance.
-Keep the tone gentle and encouraging.
-Structure your response as:
-1. Brief introduction acknowledging the reading type
-2. Interpretation for each card in context
-3. Overall message and guidance
-4. Gentle advice for moving forward
+                ai_prompt += """
+                გთხოვთ, მოგაწოდოთ თბილი, მხარდამჭერი ინტერპრეტაცია ამ ტაროს გაშლისთვის.
+                ფოკუსირება გაძლიერებაზე, ზრდასა და დადებით ხელმძღვანელობაზე.
+                შეინარჩუნეთ თბილი და მხარდამჭერი ტონი.
+                
+                პასუხის სტრუქტურა:
+                1. მოკლე შესავალი, რომელშიც აღნიშნულია გაშლის ტიპი
+                2. თითოეული კარტის ინტერპრეტაცია კონტექსტში
+                3. ზოგადი შეტყობინება და ხელმძღვანელობა
+                4. რჩევები შემდგომი მოქმედებისთვის
+                
+                ᲛᲜᲘᲨᲕᲜᲔᲚᲝᲕᲐᲜᲘᲐ: თქვენი მთელი პასუხი უნდა იყოს ქართულად!
+                იყავით მხარდამჭერი და გამაძლიერებელი.
+                """
+            else:
+                ai_prompt = f"""You are Dagi, a warm and supportive AI tarot reader for women. Provide a gentle, empowering tarot reading.
 
-Remember to be supportive and empowering."""
+                User's question: {prompt}
+
+                Cards drawn:
+                """
+
+                for i, card in enumerate(card_details):
+                    position = self.get_position_name(prompt_type, i)
+                    ai_prompt += f"{position}: {card['name']} ({card['suit']})"
+                    if card['is_reversed']:
+                        ai_prompt += " - Reversed"
+                    ai_prompt += f"\nTraditional meanings: {', '.join(card['meanings'][:3])}\n\n"
+
+                ai_prompt += f"""
+                Please provide a warm, supportive interpretation for this {prompt_type} reading.
+                Focus on empowerment, growth, and positive guidance.
+                Keep the tone gentle and encouraging.
+                Structure your response as:
+                1. Brief introduction acknowledging the reading type
+                2. Interpretation for each card in context
+                3. Overall message and guidance
+                4. Gentle advice for moving forward
+
+                Remember to be supportive and empowering.
+                """
 
             # Get OpenAI response
             try:
                 print(f"🔮 Calling OpenAI API...")
+                
+                # Use language-specific system message
+                if is_georgian:
+                    system_message = "თქვენ ხართ დაგი, თბილი და თანაგრძნობიანი ტაროს მკითხველი ქალების ჯანმრთელობისა და გაძლიერებაზე ორიენტირებული. პასუხი გაეცით მხოლოდ ქართულად."
+                else:
+                    system_message = "You are Dagi, a compassionate AI tarot reader focused on women's wellness and empowerment."
+                
                 response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model="gpt-4o-mini",  # Better multilingual support than gpt-3.5-turbo
                     messages=[
-                        {"role": "system", "content": "You are Dagi, a compassionate AI tarot reader focused on women's wellness and empowerment."},
+                        {"role": "system", "content": system_message},
                         {"role": "user", "content": ai_prompt}
                     ],
-                    max_tokens=800,
+                    max_tokens=1000,
                     temperature=0.7
                 )
 
@@ -280,7 +343,7 @@ Remember to be supportive and empowering."""
                 interpretation=interpretation,
                 advice="Take time to reflect on this reading and trust your intuition.",
                 is_ai_generated=True,
-                ai_model_used="gpt-3.5-turbo"
+                ai_model_used="gpt-4o-mini"
             )
 
             print(f"✅ Tarot reading saved with ID: {tarot_reading.id}")
@@ -308,26 +371,34 @@ Remember to be supportive and empowering."""
         try:
             print(f"💬 Processing general AI request...")
             
-            # Create OpenAI prompt for general conversation
-            ai_prompt = f"""You are Dagi, a supportive AI assistant focused on women's wellness, mental health, and personal growth.
-
-User's message: {prompt}
-
-Please provide a warm, supportive, and helpful response. Focus on:
-- Emotional support and encouragement
-- Practical advice when relevant
-- Wellness and self-care suggestions
-- Empowerment and positive growth
-
-Keep your response conversational and caring, like a trusted friend."""
+            # Detect language for response
+            is_georgian = any('\u10D0' <= char <= '\u10FF' for char in prompt)
+            
+            # Set system message based on language
+            if is_georgian:
+                system_message = """თქვენ ხართ დაგი, თბილი და მხარდამჭერი ხელოვანი ინტელექტი ქალებისთვის. 
+                გთხოვთ, პასუხი გაეცით მხოლოდ ქართულად. იყავით თბილი, მხარდამჭერი და გულწრფელი.
+                ყურადღება მიაქციეთ:
+                - ემოციურ მხარდაჭერას
+                - პრაქტიკულ რჩევებს
+                - კეთილდღეობისა და თვითზრუნვის წინადადებებს
+                - გაძლიერებასა და დადებით ცვლილებებს"""
+            else:
+                system_message = """You are Dagi, a warm and supportive AI assistant for women. 
+                Please respond in English. Be caring, supportive, and genuine.
+                Focus on:
+                - Emotional support
+                - Practical advice
+                - Wellness and self-care suggestions
+                - Empowerment and positive growth"""
 
             # Get OpenAI response
             print(f"💬 Calling OpenAI API...")
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",  # Using the same model as tarot for consistency
                 messages=[
-                    {"role": "system", "content": "You are Dagi, a compassionate AI assistant focused on women's wellness and empowerment."},
-                    {"role": "user", "content": ai_prompt}
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": prompt}
                 ],
                 max_tokens=500,
                 temperature=0.7
@@ -342,7 +413,7 @@ Keep your response conversational and caring, like a trusted friend."""
                 conversation_type='general',
                 user_message=prompt,
                 ai_response=ai_response,
-                context_data={'ai_model': 'gpt-3.5-turbo'},
+                context_data={'ai_model': 'gpt-4o-mini'},  # Updated to match the model being used
                 is_favorite=False
             )
 
@@ -365,15 +436,50 @@ Keep your response conversational and caring, like a trusted friend."""
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get_position_name(self, prompt_type, position):
-        """Get position name for different reading types"""
+        """Get position name for different reading types in English"""
         if prompt_type == 'single_card':
             return 'Your Card'
 
         three_card_positions = ['Past', 'Present', 'Future']
-        if position < len(three_card_positions):
+        if prompt_type == 'three_card' and position < len(three_card_positions):
             return three_card_positions[position]
 
+        five_card_positions = ['Past', 'Present', 'Challenge', 'Outcome', 'Advice']
+        if prompt_type == 'five_card' and position < len(five_card_positions):
+            return five_card_positions[position]
+
+        celtic_cross_positions = [
+            'The Present / The Self', 'The Challenge', 'The Past', 'The Future (Near)',
+            'Above / Conscious', 'Below / Subconscious', 'Advice / Self',
+            'External Influences', 'Hopes & Fears', 'Outcome'
+        ]
+        if prompt_type == 'celtic_cross' and position < len(celtic_cross_positions):
+            return celtic_cross_positions[position]
+
         return f'Position {position + 1}'
+        
+    def get_position_name_georgian(self, prompt_type, position):
+        """Get position name for different reading types in Georgian"""
+        if prompt_type == 'single_card':
+            return 'თქვენი კარტი'
+            
+        three_card_positions = ['წარსული', 'აწმყო', 'მომავალი']
+        if prompt_type == 'three_card' and position < len(three_card_positions):
+            return three_card_positions[position]
+            
+        five_card_positions = ['წარსული', 'აწმყო', 'გამოწვევა', 'შედეგი', 'რჩევა']
+        if prompt_type == 'five_card' and position < len(five_card_positions):
+            return five_card_positions[position]
+            
+        celtic_cross_positions = [
+            'აწმყო / საკუთარი თავი', 'გამოწვევა', 'წარსული', 'მომავალი (ახლო)',
+            'ზემოთ / ცნობიერება', 'ქვემოთ / ქვეცნობიერება', 'რჩევა / საკუთარი თავი',
+            'გარე გავლენები', 'იმედები და შიშები', 'შედეგი'
+        ]
+        if prompt_type == 'celtic_cross' and position < len(celtic_cross_positions):
+            return celtic_cross_positions[position]
+            
+        return f'პოზიცია {position + 1}'
 
     def generate_fallback_interpretation(self, cards_data, prompt_type, original_prompt):
         """Generate basic interpretation if OpenAI fails"""
