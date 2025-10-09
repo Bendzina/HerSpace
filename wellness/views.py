@@ -468,13 +468,12 @@ class TrackMindfulnessActivityView(APIView):
     """Track when a user starts a mindfulness activity"""
     permission_classes = [IsAuthenticated]
     
-    def post(self, request):
+    def post(self, request, activity_id=None):
         """Record that a user has started a mindfulness activity"""
-        activity_id = request.data.get('activity')
         
         if not activity_id:
             return Response(
-                {"error": "Activity ID is required"}, 
+                {"error": "Activity ID is required in URL"}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
             

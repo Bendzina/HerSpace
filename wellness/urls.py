@@ -18,5 +18,5 @@ urlpatterns = [
     path('mindfulness/test/', TestMindfulnessView.as_view(), name='mindfulness-test'),
     path('mindfulness/simple-activities/', SimpleMindfulnessActivityView.as_view(), name='simple-mindfulness-activities'),
     path('mindfulness/activities/', MindfulnessActivityView.as_view(), name='mindfulness-activities'),
-    path('mindfulness/activities/track/', TrackMindfulnessActivityView.as_view(), name='track-mindfulness-activity'),
+    path('mindfulness/activities/<int:activity_id>/track/', TrackMindfulnessActivityView.as_view(), name='track-mindfulness-activity'),
 ] 

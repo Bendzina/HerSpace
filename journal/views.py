@@ -166,37 +166,35 @@ class GPTAssistantView(APIView):
             is_georgian = any('ა' <= char <= 'ჿ' for char in prompt)
             print(f"🔤 Language detected: {'Georgian' if is_georgian else 'Non-Georgian'}")
 
-            # Try to extract numeric card count from prompt (e.g., "Draw 3 cards")
+            # Try to extract numeric card count from prompt (e.g., "Draw 3 cards" or "five card spread")
             import re
-            numeric_match = re.search(r'draw\s+(\d+)\s+', prompt_lower)
-            if numeric_match:
-                cards_to_draw = int(numeric_match.group(1))
-                print(f"🔮 Extracted numeric card count: {cards_to_draw}")
-                if cards_to_draw == 1:
-                    prompt_type = 'single_card'
-                elif cards_to_draw == 3:
-                    prompt_type = 'three_card'
-                elif cards_to_draw == 10:
-                    prompt_type = 'celtic_cross'
-                elif cards_to_draw == 5:
-                    prompt_type = 'five_card'
+            numeric_match = re.search(r'\b(\d+)\s*card', prompt_lower)
+            if not numeric_match:
+                # Also match patterns like "five card spread", "three card", etc.
+                word_to_number = {
+                    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+                    'ერთი': 1, 'ორი': 2, 'სამი': 3, 'ოთხი': 4, 'ხუთი': 5
+                }
+                for word, number in word_to_number.items():
+                    if word in prompt_lower:
+                        cards_to_draw = number
+                        break
                 else:
-                    prompt_type = 'custom'
-            elif 'single' in prompt_lower or 'one card' in prompt_lower or 'ერთი' in prompt_lower:
+                    cards_to_draw = 1
+            else:
+                cards_to_draw = int(numeric_match.group(1))
+
+            if cards_to_draw == 1:
                 prompt_type = 'single_card'
-                cards_to_draw = 1
-            elif 'three' in prompt_lower or 'past present future' in prompt_lower or 'სამი' in prompt_lower:
+            elif cards_to_draw == 3:
                 prompt_type = 'three_card'
-                cards_to_draw = 3
-            elif 'celtic' in prompt_lower or 'cross' in prompt_lower or 'კელტური' in prompt_lower:
+            elif cards_to_draw == 10:
                 prompt_type = 'celtic_cross'
-                cards_to_draw = 10
-            elif 'daily' in prompt_lower or 'დღიური' in prompt_lower:
-                prompt_type = 'daily'
-                cards_to_draw = 1
+            elif cards_to_draw == 5:
+                prompt_type = 'five_card'
             else:
                 prompt_type = 'custom'
-                cards_to_draw = 1
 
             print(f"🔮 Reading type: {prompt_type}, Cards to draw: {cards_to_draw}")
 
@@ -258,7 +256,7 @@ class GPTAssistantView(APIView):
 
                 for i, card in enumerate(card_details):
                     position = self.get_position_name_georgian(prompt_type, i)
-                    ai_prompt += f"{position}: {card['name']} ({card['suit']})"
+                    ai_prompt += f"{i+1}. {position}: {card['name']} ({card['suit']})"
                     if card['is_reversed']:
                         ai_prompt += " - შებრუნებული"
                     ai_prompt += f"\nტრადიციული მნიშვნელობები: {', '.join(card['meanings'][:3])}\n\n"
@@ -267,16 +265,17 @@ class GPTAssistantView(APIView):
                 გთხოვთ, მოგაწოდოთ თბილი, მხარდამჭერი ინტერპრეტაცია ამ ტაროს გაშლისთვის.
                 ფოკუსირება გაძლიერებაზე, ზრდასა და დადებით ხელმძღვანელობაზე.
                 შეინარჩუნეთ თბილი და მხარდამჭერი ტონი.
-                
+
                 პასუხის სტრუქტურა:
                 1. მოკლე შესავალი, რომელშიც აღნიშნულია გაშლის ტიპი
-                2. თითოეული კარტის ინტერპრეტაცია კონტექსტში
-                3. ზოგადი შეტყობინება და ხელმძღვანელობა
+                2. თითოეული კარტის დეტალური ინტერპრეტაცია მათი პოზიციის კონტექსტში (კარტები უნდა იყოს დანომრილი: 1-ლი კარტი, 2-ლი კარტი, და ა.შ.)
+                3. ზოგადი შეტყობინება და ხელმძღვანელობა, რომელიც აკავშირებს ყველა კარტს
                 4. რჩევები შემდგომი მოქმედებისთვის
-                
+
                 ᲛᲜᲘᲨᲕᲜᲔᲚᲝᲕᲐᲜᲘᲐ: თქვენი მთელი პასუხი უნდა იყოს ქართულად!
                 იყავით მხარდამჭერი და გამაძლიერებელი.
-                """
+                ᲛᲜᲘᲨᲕᲜᲔᲚᲝᲕᲐᲜᲘᲐ: მომხმარებლის მიერ დასმული შეკითხვის მიხედვით, ტაროს კარტების ინტერპრეტაციის დროს უნდა დაიწეროს შესაბამისი რჩევები.
+"""
             else:
                 ai_prompt = f"""You are Dagi, a warm and supportive AI tarot reader for women. Provide a gentle, empowering tarot reading.
 
@@ -287,7 +286,7 @@ class GPTAssistantView(APIView):
 
                 for i, card in enumerate(card_details):
                     position = self.get_position_name(prompt_type, i)
-                    ai_prompt += f"{position}: {card['name']} ({card['suit']})"
+                    ai_prompt += f"{i+1}. {position}: {card['name']} ({card['suit']})"
                     if card['is_reversed']:
                         ai_prompt += " - Reversed"
                     ai_prompt += f"\nTraditional meanings: {', '.join(card['meanings'][:3])}\n\n"
@@ -321,7 +320,7 @@ class GPTAssistantView(APIView):
                         {"role": "system", "content": system_message},
                         {"role": "user", "content": ai_prompt}
                     ],
-                    max_tokens=1000,
+                    max_tokens=1500,
                     temperature=0.7
                 )
 
